@@ -1,23 +1,37 @@
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, fallback } from "viem";
 import { mainnet, arbitrum, optimism, base, polygon } from "viem/chains";
 import type { SupportedChain } from "./constants";
 
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+
 function alchemyUrl(network: string): string {
-  const key = process.env.ALCHEMY_API_KEY;
-  if (!key) throw new Error("ALCHEMY_API_KEY is not set in .env");
-  return `https://${network}.g.alchemy.com/v2/${key}`;
+  return `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 }
 
-// Lazy singletons — created on first access so missing API key throws at call time, not import time
+const PUBLIC_RPC: Record<SupportedChain, string> = {
+  ethereum: "https://cloudflare-eth.com",
+  arbitrum: "https://arb1.arbitrum.io/rpc",
+  optimism: "https://mainnet.optimism.io",
+  base: "https://mainnet.base.org",
+  polygon: "https://polygon-rpc.com",
+};
+
+function chainTransport(chain: SupportedChain, alchemyNetwork: string) {
+  const publicTransport = http(PUBLIC_RPC[chain]);
+  if (!ALCHEMY_API_KEY) return publicTransport;
+  return fallback([http(alchemyUrl(alchemyNetwork)), publicTransport]);
+}
+
+// Lazy singletons — created on first access
 let _clients: ReturnType<typeof buildClients> | null = null;
 
 function buildClients() {
   return {
-    ethereum: createPublicClient({ chain: mainnet, transport: http(alchemyUrl("eth-mainnet")) }),
-    arbitrum: createPublicClient({ chain: arbitrum, transport: http(alchemyUrl("arb-mainnet")) }),
-    optimism: createPublicClient({ chain: optimism, transport: http(alchemyUrl("opt-mainnet")) }),
-    base:     createPublicClient({ chain: base,     transport: http(alchemyUrl("base-mainnet")) }),
-    polygon:  createPublicClient({ chain: polygon,  transport: http(alchemyUrl("polygon-mainnet")) }),
+    ethereum: createPublicClient({ chain: mainnet, transport: chainTransport("ethereum", "eth-mainnet") }),
+    arbitrum: createPublicClient({ chain: arbitrum, transport: chainTransport("arbitrum", "arb-mainnet") }),
+    optimism: createPublicClient({ chain: optimism, transport: chainTransport("optimism", "opt-mainnet") }),
+    base: createPublicClient({ chain: base, transport: chainTransport("base", "base-mainnet") }),
+    polygon: createPublicClient({ chain: polygon, transport: chainTransport("polygon", "polygon-mainnet") }),
   };
 }
 

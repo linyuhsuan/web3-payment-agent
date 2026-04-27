@@ -32,9 +32,9 @@ export function ChatInput({ onSubmit, isLoading = false }: ChatInputProps) {
     : "e.g. send 50 USDT to alice.eth";
 
   return (
-    <form className="chat-input-form" onSubmit={handleSubmit}>
+    <form className="flex gap-2" onSubmit={handleSubmit}>
       <input
-        className="chat-input"
+        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -42,7 +42,7 @@ export function ChatInput({ onSubmit, isLoading = false }: ChatInputProps) {
         disabled={!isConnected || isLoading}
       />
       <button
-        className="chat-submit"
+        className="rounded-lg bg-violet-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
         type="submit"
         disabled={!isConnected || isLoading || !message.trim()}
       >

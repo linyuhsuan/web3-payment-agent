@@ -1,3 +1,5 @@
+export const USDT_DECIMALS = 6;
+
 export const USDT_ADDRESSES = {
   ethereum: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   arbitrum: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",

@@ -13,7 +13,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider>
+        <ConnectKitProvider options={{ hideBalance: false }}>
           <App />
         </ConnectKitProvider>
       </QueryClientProvider>

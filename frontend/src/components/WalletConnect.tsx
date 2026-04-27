@@ -1,17 +1,17 @@
 import { ConnectKitButton } from "connectkit";
-import { useConnection } from "wagmi";
+// import { useAccount } from "wagmi";
 
 export function WalletConnect() {
-  const { address, isConnected } = useConnection();
+  // const { address, isConnected } = useAccount();
 
   return (
-    <div className="wallet-connect">
+    <div className="flex items-center gap-2">
       <ConnectKitButton />
-      {isConnected && address && (
+      {/* {isConnected && address && (
         <p className="wallet-address">
           {address.slice(0, 6)}…{address.slice(-4)}
         </p>
-      )}
+      )} */}
     </div>
   );
 }

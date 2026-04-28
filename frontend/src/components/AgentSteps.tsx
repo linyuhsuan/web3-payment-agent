@@ -15,8 +15,10 @@ export function AgentSteps({ steps, claudeText }: AgentStepsProps) {
   if (steps.length === 0 && !claudeText) return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Agent Steps</h2>
+    <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-violet-400">
+        Agent Reasoning
+      </h2>
       {steps.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {steps.map((step) => (
@@ -26,7 +28,7 @@ export function AgentSteps({ steps, claudeText }: AgentStepsProps) {
                 aria-hidden
               />
               <div>
-                <p className="m-0 text-sm font-semibold text-gray-900">{step.title}</p>
+                <p className="m-0 text-sm font-semibold text-gray-200">{step.title}</p>
                 <p className="m-0 mt-0.5 text-sm text-gray-500">{step.detail}</p>
               </div>
             </li>
@@ -34,7 +36,7 @@ export function AgentSteps({ steps, claudeText }: AgentStepsProps) {
         </ul>
       )}
       {claudeText && (
-        <p className="mt-3 border-t border-gray-100 pt-3 text-sm text-gray-700 whitespace-pre-wrap">
+        <p className="mt-3 border-t border-gray-800 pt-3 text-sm text-gray-400 whitespace-pre-wrap">
           {claudeText}
         </p>
       )}

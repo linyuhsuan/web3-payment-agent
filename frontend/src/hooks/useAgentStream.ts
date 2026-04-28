@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BACKEND_URL } from "../web3/constants";
 
 export type AgentStepStatus = "running" | "done" | "error";
@@ -52,19 +52,23 @@ function toolDetail(tool: string, result: unknown): string {
   }
 }
 
-let stepCounter = 0;
-
 export function useAgentStream() {
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [claudeText, setClaudeText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [decision, setDecision] = useState<AgentDecision | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const stepCounterRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const reset = useCallback(() => {
     setSteps([]);
     setClaudeText("");
     setDecision(null);
     setIsStreaming(false);
+    setStreamError(null);
   }, []);
 
   const clearSession = useCallback(async (walletAddress: string) => {
@@ -73,16 +77,25 @@ export function useAgentStream() {
   }, [reset]);
 
   const startLiveStream = useCallback(async (message: string, walletAddress: string) => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsStreaming(true);
     setSteps([]);
     setClaudeText("");
     setDecision(null);
+    setStreamError(null);
+
+    // Track running steps locally to avoid reading React state in updaters
+    let runningCount = 0;
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, walletAddress }),
+        signal: controller.signal,
       });
       if (!response.ok || !response.body) {
         throw new Error(`SSE request failed: HTTP ${response.status}`);
@@ -109,7 +122,8 @@ export function useAgentStream() {
           const data = JSON.parse(dataMatch[1]) as Record<string, unknown>;
 
           if (eventName === "tool_start" && typeof data.tool === "string") {
-            const id = `${data.tool}-${++stepCounter}`;
+            runningCount++;
+            const id = `${data.tool}-${++stepCounterRef.current}`;
             setSteps((prev) => [
               ...prev,
               {
@@ -121,6 +135,7 @@ export function useAgentStream() {
               },
             ]);
           } else if (eventName === "tool_result" && typeof data.tool === "string") {
+            runningCount = Math.max(0, runningCount - 1);
             setSteps((prev) => {
               const lastRunningIdx = [...prev]
                 .reverse()
@@ -139,29 +154,39 @@ export function useAgentStream() {
             setDecision(data as unknown as AgentDecision);
           } else if (eventName === "error") {
             const msg = typeof data.message === "string" ? data.message : "Unknown error";
-            setSteps((prev) => {
-              const lastRunning = [...prev].reverse().find((s) => s.status === "running");
-              if (!lastRunning) return prev;
-              return prev.map((s) =>
-                s.id === lastRunning.id ? { ...s, status: "error", detail: msg } : s
-              );
-            });
+            if (runningCount === 0) {
+              setStreamError(msg);
+            } else {
+              runningCount = Math.max(0, runningCount - 1);
+              setSteps((prev) => {
+                const lastRunning = [...prev].reverse().find((s) => s.status === "running");
+                if (!lastRunning) return prev;
+                return prev.map((s) =>
+                  s.id === lastRunning.id ? { ...s, status: "error", detail: msg } : s
+                );
+              });
+            }
           } else if (eventName === "done") {
             finished = true;
           }
         }
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       const msg = err instanceof Error ? err.message : "Unknown error";
-      setSteps((prev) =>
-        prev.map((s) => (s.status === "running" ? { ...s, status: "error", detail: msg } : s))
-      );
+      if (runningCount === 0) {
+        setStreamError(msg);
+      } else {
+        setSteps((prev) =>
+          prev.map((s) => (s.status === "running" ? { ...s, status: "error", detail: msg } : s))
+        );
+      }
     } finally {
       setIsStreaming(false);
     }
   }, []);
 
-  const hasSteps = useMemo(() => steps.length > 0, [steps.length]);
+  const hasSteps = steps.length > 0;
 
   return {
     steps,
@@ -169,6 +194,7 @@ export function useAgentStream() {
     decision,
     hasSteps,
     isStreaming,
+    streamError,
     startLiveStream,
     clearSession,
     reset,

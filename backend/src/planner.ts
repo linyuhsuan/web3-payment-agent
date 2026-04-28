@@ -1,4 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI, Type } from "@google/genai";
+import type { Content, Part, FunctionDeclaration, Tool } from "@google/genai";
 import { isAddress } from "viem";
 import { resolveIdentity } from "./tools/resolveIdentity";
 import { getBalances, type GetBalancesResult } from "./tools/getBalances";
@@ -8,7 +9,8 @@ import { createTransaction, type CreateTransactionResult } from "./tools/createT
 import { SUPPORTED_CHAINS, type SupportedChain } from "./web3/constants";
 import { SYSTEM_PROMPT } from "./systemPrompt";
 
-export type ConversationMessage = Anthropic.MessageParam;
+// Use Gemini's Content type directly so messages are compatible with generateContent
+export type ConversationMessage = Content;
 
 export type AgentEventType =
   | "tool_start"
@@ -24,18 +26,18 @@ export interface AgentEvent {
   [key: string]: unknown;
 }
 
-const CHAIN_ENUM = [...SUPPORTED_CHAINS] as string[];
+const CHAIN_LIST = SUPPORTED_CHAINS.join(", ");
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "resolveIdentity",
     description:
       "Resolve an ENS name (e.g. alice.eth) or a 0x address to a checksummed Ethereum address.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: Type.OBJECT,
       properties: {
         identifier: {
-          type: "string",
+          type: Type.STRING,
           description: "ENS name (e.g. alice.eth) or a 0x Ethereum address",
         },
       },
@@ -44,12 +46,12 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "getBalances",
-    description: `Fetch USDT and ETH balances for a wallet across all supported chains: ${SUPPORTED_CHAINS.join(", ")}.`,
-    input_schema: {
-      type: "object" as const,
+    description: `Fetch USDT and ETH balances for a wallet across all supported chains: ${CHAIN_LIST}.`,
+    parameters: {
+      type: Type.OBJECT,
       properties: {
         address: {
-          type: "string",
+          type: Type.STRING,
           description: "The wallet address to check",
         },
       },
@@ -60,19 +62,13 @@ const TOOLS: Anthropic.Tool[] = [
     name: "selectChain",
     description:
       "Pick the best chain for a USDT transfer: must have enough USDT balance, ETH for gas, and the lowest total gas cost.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: Type.OBJECT,
       properties: {
-        from: { type: "string", description: "Sender wallet address" },
-        to: {
-          type: "string",
-          description: "Recipient wallet address (resolved 0x address)",
-        },
-        amountUSDT: { type: "number", description: "Amount of USDT to transfer" },
-        balances: {
-          type: "object",
-          description: "The full result object returned by getBalances",
-        },
+        from: { type: Type.STRING, description: "Sender wallet address" },
+        to: { type: Type.STRING, description: "Recipient wallet address (resolved 0x address)" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT to transfer" },
+        balances: { type: Type.OBJECT, description: "The full result object returned by getBalances" },
       },
       required: ["from", "to", "amountUSDT", "balances"],
     },
@@ -81,13 +77,13 @@ const TOOLS: Anthropic.Tool[] = [
     name: "estimateGas",
     description:
       "Estimate the total gas cost (including L1 data fee for L2 chains) for a USDT ERC-20 transfer on a specific chain.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: Type.OBJECT,
       properties: {
-        chain: { type: "string", enum: CHAIN_ENUM },
-        from: { type: "string", description: "Sender address" },
-        to: { type: "string", description: "Recipient address" },
-        amountUSDT: { type: "number", description: "Amount of USDT" },
+        chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
+        from: { type: Type.STRING, description: "Sender address" },
+        to: { type: Type.STRING, description: "Recipient address" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT" },
       },
       required: ["chain", "from", "to", "amountUSDT"],
     },
@@ -96,18 +92,20 @@ const TOOLS: Anthropic.Tool[] = [
     name: "createTransaction",
     description:
       "Build the final unsigned ERC-20 USDT transfer calldata with a final balance check. Call this last after selecting the chain.",
-    input_schema: {
-      type: "object" as const,
+    parameters: {
+      type: Type.OBJECT,
       properties: {
-        chain: { type: "string", enum: CHAIN_ENUM },
-        from: { type: "string", description: "Sender address" },
-        to: { type: "string", description: "Recipient address" },
-        amountUSDT: { type: "number", description: "Amount of USDT" },
+        chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
+        from: { type: Type.STRING, description: "Sender address" },
+        to: { type: Type.STRING, description: "Recipient address" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT" },
       },
       required: ["chain", "from", "to", "amountUSDT"],
     },
   },
 ];
+
+const TOOLS: Tool[] = [{ functionDeclarations: TOOL_DECLARATIONS }];
 
 type ToolInput = Record<string, unknown>;
 
@@ -148,7 +146,7 @@ function extractError(err: unknown): { code: string; message: string } {
   return { code: "TOOL_FAILED", message: String(err) };
 }
 
-const anthropic = new Anthropic();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 const MAX_ITERATIONS = 10;
 
 export async function runPlanner(
@@ -160,73 +158,81 @@ export async function runPlanner(
     throw new Error("Invalid wallet address");
   }
 
-  const messages: ConversationMessage[] = [...conversationHistory];
+  const messages: Content[] = [...conversationHistory];
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const stream = await anthropic.messages.stream({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT(walletAddress),
-      tools: TOOLS,
-      messages,
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: messages,
+      config: {
+        systemInstruction: SYSTEM_PROMPT(walletAddress),
+        tools: TOOLS,
+        maxOutputTokens: 1024,
+      },
     });
 
-    stream.on("text", (text) => onEvent({ type: "text", content: text }));
+    const parts: Part[] = response.candidates?.[0]?.content?.parts ?? [];
 
-    const response = await stream.finalMessage();
-    messages.push({ role: "assistant", content: response.content });
+    // Emit any text content from the model
+    const textContent = parts
+      .filter((p) => typeof p.text === "string" && p.text)
+      .map((p) => p.text as string)
+      .join("");
+    if (textContent) onEvent({ type: "text", content: textContent });
 
-    if (response.stop_reason === "end_turn") break;
+    // Add model response to conversation history
+    messages.push({ role: "model", parts });
 
-    if (response.stop_reason === "tool_use") {
-      const toolBlocks = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-      );
+    // Find function call parts
+    const funcCallParts = parts.filter(
+      (p): p is Part & { functionCall: NonNullable<Part["functionCall"]> } =>
+        p.functionCall != null
+    );
 
-      // Execute all tool calls from this response in parallel
-      const settled = await Promise.allSettled(
-        toolBlocks.map(async (block) => {
-          onEvent({ type: "tool_start", tool: block.name, input: block.input });
-          const result = await EXECUTORS[block.name](block.input as ToolInput);
-          onEvent({ type: "tool_result", tool: block.name, result });
+    if (funcCallParts.length === 0) break;
 
-          if (block.name === "createTransaction") {
-            const tx = result as CreateTransactionResult;
-            const inp = block.input as ToolInput;
-            onEvent({
-              type: "decision",
-              recipient: inp.to as string,
-              chain: inp.chain as string,
-              amountUSDT: inp.amountUSDT as number,
-              gasFeeNative: tx.gasEstimate.totalFeeNative,
-              transaction: tx.tx,
-            });
-          }
+    // Execute all tool calls in parallel
+    const settled = await Promise.allSettled(
+      funcCallParts.map(async (part) => {
+        const name = part.functionCall.name ?? "";
+        const args = (part.functionCall.args ?? {}) as ToolInput;
 
-          return { id: block.id, result };
-        })
-      );
+        onEvent({ type: "tool_start", tool: name, input: args });
+        const result = await EXECUTORS[name](args);
+        onEvent({ type: "tool_result", tool: name, result });
 
-      const toolResults: Anthropic.ToolResultBlockParam[] = settled.map((outcome, idx) => {
-        if (outcome.status === "fulfilled") {
-          return {
-            type: "tool_result",
-            tool_use_id: toolBlocks[idx].id,
-            content: JSON.stringify(outcome.value.result),
-          };
+        if (name === "createTransaction") {
+          const tx = result as CreateTransactionResult;
+          onEvent({
+            type: "decision",
+            recipient: args.to as string,
+            chain: args.chain as string,
+            amountUSDT: args.amountUSDT as number,
+            gasFeeNative: tx.gasEstimate.totalFeeNative,
+            transaction: tx.tx,
+          });
         }
-        const { code, message } = extractError(outcome.reason);
-        onEvent({ type: "error", code, message });
-        return {
-          type: "tool_result",
-          tool_use_id: toolBlocks[idx].id,
-          content: JSON.stringify({ error: message, code }),
-          is_error: true,
-        };
-      });
 
-      messages.push({ role: "user", content: toolResults });
-    }
+        return { name, result };
+      })
+    );
+
+    // Return tool results as a user turn with functionResponse parts
+    const responseParts: Part[] = settled.map((outcome, idx) => {
+      const name = funcCallParts[idx].functionCall.name ?? "";
+      if (outcome.status === "fulfilled") {
+        return {
+          functionResponse: { name, response: { result: outcome.value.result } },
+        };
+      }
+      const { code, message } = extractError(outcome.reason);
+      onEvent({ type: "error", code, message });
+      return {
+        functionResponse: { name, response: { error: message, code } },
+      };
+    });
+
+    messages.push({ role: "user", parts: responseParts });
   }
 
   onEvent({ type: "done" });

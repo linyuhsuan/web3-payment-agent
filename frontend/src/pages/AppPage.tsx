@@ -14,15 +14,15 @@ const EXAMPLES = [
 ];
 
 const STEPS_GUIDE = [
-  { icon: "🔗", title: "Connect Wallet", desc: "Click \"Connect Wallet\" in the top right to link your MetaMask." },
+  { icon: "🔗", title: "Connect Wallet", desc: "Click \"Connect Wallet\" in the top right to link your wallet." },
   { icon: "💬", title: "Type your intent", desc: "Describe your payment naturally — recipient, amount, token." },
   { icon: "🤖", title: "Agent reasons", desc: "AI resolves ENS, scans 5 chains, picks the optimal path automatically." },
-  { icon: "✍️", title: "Sign in MetaMask", desc: "Review the decision card, then confirm the transaction in MetaMask." },
+  { icon: "✍️", title: "Sign in MetaMask", desc: "Review the decision card, then confirm the transaction in your wallet." },
 ];
 
 export default function AppPage() {
   const { address } = useAccount();
-  const { steps, claudeText, decision, hasSteps, isStreaming, startLiveStream, clearSession } =
+  const { steps, claudeText, decision, hasSteps, isStreaming, streamError, startLiveStream, clearSession } =
     useAgentStream();
   const [inputValue, setInputValue] = useState("");
 
@@ -134,6 +134,11 @@ export default function AppPage() {
                 </div>
 
                 {/* Agent output */}
+                {streamError && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                    {streamError}
+                  </div>
+                )}
                 {(hasSteps || claudeText) && (
                   <AgentSteps steps={steps} claudeText={claudeText} />
                 )}

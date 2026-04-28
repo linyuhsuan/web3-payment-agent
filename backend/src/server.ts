@@ -183,7 +183,7 @@ app.post("/api/agent", async (req, res) => {
 
   const session = sessions.get(walletAddress) ?? { messages: [], lastAccess: 0 };
   session.lastAccess = Date.now();
-  session.messages.push({ role: "user", content: message });
+  session.messages.push({ role: "user", parts: [{ text: message }] });
   sessions.set(walletAddress, session);
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -194,6 +194,8 @@ app.post("/api/agent", async (req, res) => {
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
+
+  const keepalive = setInterval(() => res.write(": keepalive\n\n"), 15000);
 
   try {
     const updatedMessages = await runPlanner(
@@ -210,6 +212,7 @@ app.post("/api/agent", async (req, res) => {
       message: err instanceof Error ? err.message : "Unknown planner error",
     });
   } finally {
+    clearInterval(keepalive);
     res.end();
   }
 });

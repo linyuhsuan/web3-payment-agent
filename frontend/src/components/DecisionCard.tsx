@@ -24,7 +24,7 @@ export function DecisionCard({ decision }: DecisionCardProps) {
       const hash = await sendTransactionAsync({
         to: decision.transaction.to,
         data: decision.transaction.data,
-        value: 0n,
+        value: BigInt(decision.transaction.value ?? "0"),
       });
       setTxHash(hash);
     } catch (err) {
@@ -50,7 +50,11 @@ export function DecisionCard({ decision }: DecisionCardProps) {
         </div>
         <div className="flex items-center justify-between rounded-lg bg-gray-900/60 px-4 py-2.5">
           <span className="text-xs text-gray-500">Amount</span>
-          <span className="text-sm font-medium text-emerald-400">{decision.amountUSDT} USDT</span>
+          <span className="text-sm font-medium text-emerald-400">
+            {decision.targetToken === "ETH"
+              ? `${decision.amountETH} ETH`
+              : `${decision.amountUSDT} USDT`}
+          </span>
         </div>
         <div className="flex items-center justify-between rounded-lg bg-gray-900/60 px-4 py-2.5">
           <span className="text-xs text-gray-500">Estimated Gas</span>

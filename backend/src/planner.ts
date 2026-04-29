@@ -6,6 +6,8 @@ import { getBalances, type GetBalancesResult } from "./tools/getBalances";
 import { selectChain } from "./tools/selectChain";
 import { estimateGas } from "./tools/estimateGas";
 import { createTransaction, type CreateTransactionResult } from "./tools/createTransaction";
+import { getSwapQuote } from "./tools/getSwapQuote";
+import { buildSwapTx, type BuildSwapTxResult } from "./tools/buildSwapTx";
 import { SUPPORTED_CHAINS, type SupportedChain } from "./web3/constants";
 import { SYSTEM_PROMPT } from "./systemPrompt";
 
@@ -61,46 +63,85 @@ const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "selectChain",
     description:
-      "Pick the best chain for a USDT transfer: must have enough USDT balance, ETH for gas, and the lowest total gas cost.",
+      "Pick the best chain for a transfer: must have enough balance and the lowest total gas cost.",
     parameters: {
       type: Type.OBJECT,
       properties: {
         from: { type: Type.STRING, description: "Sender wallet address" },
         to: { type: Type.STRING, description: "Recipient wallet address (resolved 0x address)" },
-        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT to transfer" },
+        targetToken: { type: Type.STRING, description: "Token to transfer: 'USDT' or 'ETH'" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT to transfer (if targetToken is USDT)" },
+        amountETH: { type: Type.NUMBER, description: "Amount of ETH to transfer (if targetToken is ETH)" },
         balances: { type: Type.OBJECT, description: "The full result object returned by getBalances" },
       },
-      required: ["from", "to", "amountUSDT", "balances"],
+      required: ["from", "to", "balances"],
     },
   },
   {
     name: "estimateGas",
     description:
-      "Estimate the total gas cost (including L1 data fee for L2 chains) for a USDT ERC-20 transfer on a specific chain.",
+      "Estimate the total gas cost (including L1 data fee for L2 chains) for a token transfer on a specific chain.",
     parameters: {
       type: Type.OBJECT,
       properties: {
         chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
         from: { type: Type.STRING, description: "Sender address" },
         to: { type: Type.STRING, description: "Recipient address" },
-        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT" },
+        targetToken: { type: Type.STRING, description: "Token to transfer: 'USDT' or 'ETH'" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT (if targetToken is USDT)" },
+        amountETH: { type: Type.NUMBER, description: "Amount of ETH (if targetToken is ETH)" },
       },
-      required: ["chain", "from", "to", "amountUSDT"],
+      required: ["chain", "from", "to"],
     },
   },
   {
     name: "createTransaction",
     description:
-      "Build the final unsigned ERC-20 USDT transfer calldata with a final balance check. Call this last after selecting the chain.",
+      "Build the final unsigned transfer calldata with a final balance check. Call this last after selecting the chain. Supports both USDT ERC-20 and native ETH transfers.",
     parameters: {
       type: Type.OBJECT,
       properties: {
         chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
         from: { type: Type.STRING, description: "Sender address" },
         to: { type: Type.STRING, description: "Recipient address" },
-        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT" },
+        targetToken: { type: Type.STRING, description: "Token to transfer: 'USDT' or 'ETH'" },
+        amountUSDT: { type: Type.NUMBER, description: "Amount of USDT (if targetToken is USDT)" },
+        amountETH: { type: Type.NUMBER, description: "Amount of ETH (if targetToken is ETH)" },
       },
-      required: ["chain", "from", "to", "amountUSDT"],
+      required: ["chain", "from", "to"],
+    },
+  },
+  {
+    name: "getSwapQuote",
+    description:
+      "Get a swap quote from Uniswap. Use when user wants to pay a token they don't have (ETH→USDT or USDT→ETH). Returns a quoteId for use with buildSwapTx.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        direction: { type: Type.STRING, description: "'ETH_TO_USDT' or 'USDT_TO_ETH'" },
+        chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
+        from: { type: Type.STRING, description: "Sender address" },
+        to: { type: Type.STRING, description: "Final recipient address" },
+        amountOut: { type: Type.NUMBER, description: "How much output token the user wants (EXACT_OUTPUT)" },
+      },
+      required: ["direction", "chain", "from", "to", "amountOut"],
+    },
+  },
+  {
+    name: "buildSwapTx",
+    description:
+      "Build the unsigned swap + transfer transactions using a Uniswap quote. Call after getSwapQuote. Returns 2 txs (ETH→USDT) or 3 txs (USDT→ETH: approve + swap + transfer).",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        quoteId: { type: Type.STRING, description: "quoteId returned by getSwapQuote" },
+        chain: { type: Type.STRING, description: `One of: ${CHAIN_LIST}` },
+        from: { type: Type.STRING, description: "Sender address" },
+        transferTo: { type: Type.STRING, description: "Final recipient address" },
+        transferAmount: { type: Type.NUMBER, description: "Amount of output token to transfer to recipient" },
+        direction: { type: Type.STRING, description: "'ETH_TO_USDT' or 'USDT_TO_ETH'" },
+      },
+      required: ["quoteId", "chain", "from", "transferTo", "transferAmount", "direction"],
     },
   },
 ];
@@ -116,7 +157,9 @@ const EXECUTORS: Record<string, (input: ToolInput) => Promise<unknown>> = {
     selectChain({
       from: input.from as `0x${string}`,
       to: input.to as `0x${string}`,
-      amountUSDT: input.amountUSDT as number,
+      targetToken: (input.targetToken as "USDT" | "ETH") ?? "USDT",
+      amountUSDT: input.amountUSDT as number | undefined,
+      amountETH: input.amountETH as number | undefined,
       balances: input.balances as GetBalancesResult,
     }),
   estimateGas: (input) =>
@@ -124,14 +167,35 @@ const EXECUTORS: Record<string, (input: ToolInput) => Promise<unknown>> = {
       chain: input.chain as SupportedChain,
       from: input.from as `0x${string}`,
       to: input.to as `0x${string}`,
-      amountUSDT: input.amountUSDT as number,
+      targetToken: (input.targetToken as "USDT" | "ETH") ?? "USDT",
+      amountUSDT: input.amountUSDT as number | undefined,
+      amountETH: input.amountETH as number | undefined,
     }),
   createTransaction: (input) =>
     createTransaction({
       chain: input.chain as SupportedChain,
       from: input.from as `0x${string}`,
       to: input.to as `0x${string}`,
-      amountUSDT: input.amountUSDT as number,
+      targetToken: (input.targetToken as "USDT" | "ETH") ?? "USDT",
+      amountUSDT: input.amountUSDT as number | undefined,
+      amountETH: input.amountETH as number | undefined,
+    }),
+  getSwapQuote: (input) =>
+    getSwapQuote({
+      direction: input.direction as "ETH_TO_USDT" | "USDT_TO_ETH",
+      chain: input.chain as SupportedChain,
+      from: input.from as `0x${string}`,
+      to: input.to as `0x${string}`,
+      amountOut: input.amountOut as number,
+    }),
+  buildSwapTx: (input) =>
+    buildSwapTx({
+      quoteId: input.quoteId as string,
+      chain: input.chain as SupportedChain,
+      from: input.from as `0x${string}`,
+      transferTo: input.transferTo as `0x${string}`,
+      transferAmount: input.transferAmount as number,
+      direction: input.direction as "ETH_TO_USDT" | "USDT_TO_ETH",
     }),
 };
 
@@ -207,9 +271,26 @@ export async function runPlanner(
             type: "decision",
             recipient: args.to as string,
             chain: args.chain as string,
-            amountUSDT: args.amountUSDT as number,
+            targetToken: tx.targetToken,
+            amountUSDT: args.amountUSDT as number | undefined,
+            amountETH: args.amountETH as number | undefined,
             gasFeeNative: tx.gasEstimate.totalFeeNative,
             transaction: tx.tx,
+          });
+        }
+
+        if (name === "buildSwapTx") {
+          const swap = result as BuildSwapTxResult;
+          onEvent({
+            type: "swap_decision",
+            direction: swap.direction,
+            chain: args.chain as string,
+            transferTo: args.transferTo as string,
+            transferAmount: args.transferAmount as number,
+            txCount: swap.txCount,
+            approveTx: swap.approveTx,
+            swapTx: swap.swapTx,
+            transferTx: swap.transferTx,
           });
         }
 

@@ -5,12 +5,14 @@ import { ChatInput } from "../components/ChatInput";
 import { BalanceDisplay } from "../components/BalanceDisplay";
 import { AgentSteps } from "../components/AgentSteps";
 import { DecisionCard } from "../components/DecisionCard";
+import { SwapDecisionCard } from "../components/SwapDecisionCard";
 import { useAgentStream } from "../hooks/useAgentStream";
 
 const EXAMPLES = [
   "Send 50 USDT to alice.eth",
-  "Pay vitalik.eth 100 USDT",
-  "Transfer 25 USDT to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "Send 0.01 ETH to vitalik.eth",
+  "Pay alice.eth 100 USDT",
+  "Transfer 0.005 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 ];
 
 const STEPS_GUIDE = [
@@ -22,7 +24,7 @@ const STEPS_GUIDE = [
 
 export default function AppPage() {
   const { address } = useAccount();
-  const { steps, claudeText, decision, hasSteps, isStreaming, streamError, startLiveStream, clearSession } =
+  const { steps, claudeText, decision, swapDecision, hasSteps, isStreaming, streamError, startLiveStream, clearSession } =
     useAgentStream();
   const [inputValue, setInputValue] = useState("");
 
@@ -37,7 +39,7 @@ export default function AppPage() {
     if (address) clearSession(address);
   }, [address, clearSession]);
 
-  const hasActivity = hasSteps || !!claudeText || !!decision;
+  const hasActivity = hasSteps || !!claudeText || !!decision || !!swapDecision;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -143,6 +145,7 @@ export default function AppPage() {
                   <AgentSteps steps={steps} claudeText={claudeText} />
                 )}
                 {decision && <DecisionCard decision={decision} />}
+                {swapDecision && <SwapDecisionCard decision={swapDecision} />}
               </>
             )}
           </div>
@@ -173,7 +176,7 @@ export default function AppPage() {
                 Supported Chains
               </p>
               <div className="flex flex-wrap gap-2">
-                {["Ethereum", "Arbitrum", "Optimism", "Base", "Polygon"].map((c) => (
+                {["Ethereum", "Arbitrum", "Optimism", "Base", "Polygon", "Sepolia (Testnet)"].map((c) => (
                   <span key={c} className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1 text-xs text-gray-400">
                     {c}
                   </span>
@@ -182,10 +185,11 @@ export default function AppPage() {
               <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-600">
                 Supported Tokens
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <span className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1 text-xs text-gray-400">USDT</span>
+                <span className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1 text-xs text-gray-400">ETH</span>
                 <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs text-violet-400">
-                  ETH → USDT via Uniswap
+                  ETH ↔ USDT via Uniswap
                 </span>
               </div>
             </div>

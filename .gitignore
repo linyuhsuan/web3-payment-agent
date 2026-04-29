@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.local
+
+# frontend build
+frontend/dist/
+
+# backend build
+backend/dist/

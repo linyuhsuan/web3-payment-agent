@@ -13,7 +13,22 @@ import { type SupportedChain, SUPPORTED_CHAINS } from "./web3/constants";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // In-memory conversation sessions keyed by walletAddress

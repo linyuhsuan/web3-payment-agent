@@ -19,10 +19,8 @@ export function useBalances(address: string | undefined) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!address) {
-      setData(null);
-      return;
-    }
+    setData(null);
+    if (!address) return;
 
     let cancelled = false;
     setLoading(true);

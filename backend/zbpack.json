@@ -1,5 +1,0 @@
-{
-  "build_command": "npm install && npm run build",
-  "start_command": "npm start",
-  "node_version": "20.18.3"
-}

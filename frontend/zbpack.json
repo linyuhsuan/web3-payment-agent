@@ -1,6 +1,6 @@
 {
-  "build_command": "npm install && npm run build",
+  "build_command": "npm run build",
   "output_dir": "dist",
-  "node_version": "20",
+  "node_version": "22",
   "start_command": ""
 }

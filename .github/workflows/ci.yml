@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/init-project]
 
 jobs:
   backend:
@@ -52,6 +52,6 @@ jobs:
       - name: TypeScript + Vite build
         run: npm run build
         env:
-          VITE_BACKEND_URL: "https://placeholder.zeabur.app"
+          VITE_BACKEND_URL: "https://payment-agent.zeabur.app/"
           VITE_ALCHEMY_API_KEY: "ci-placeholder"
           VITE_WALLETCONNECT_PROJECT_ID: "ci-placeholder"

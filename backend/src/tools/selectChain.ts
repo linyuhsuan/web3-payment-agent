@@ -42,7 +42,7 @@ export async function selectChain(input: SelectChainInput): Promise<SelectChainR
     throw new Error(`[selectChain] No chain has enough ${label} and native token for gas`);
   }
 
-  const gasByChain = await Promise.all(
+  const gasResults = await Promise.allSettled(
     eligibleChains.map((chain) =>
       estimateGas({
         chain,
@@ -54,6 +54,21 @@ export async function selectChain(input: SelectChainInput): Promise<SelectChainR
       })
     )
   );
+
+  const gasByChain = gasResults
+    .filter((r): r is PromiseFulfilledResult<EstimateGasResult> => r.status === "fulfilled")
+    .map((r) => r.value);
+
+  gasResults.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.warn(`[selectChain] estimateGas failed on ${eligibleChains[i]}:`, r.reason);
+    }
+  });
+
+  if (gasByChain.length === 0) {
+    throw new Error(`[selectChain] Gas estimation failed on all eligible chains: ${eligibleChains.join(", ")}`);
+  }
+
   gasByChain.sort((a, b) => BigInt(a.totalFeeWei) < BigInt(b.totalFeeWei) ? -1 : 1);
 
   const selectedChain = gasByChain[0].chain;

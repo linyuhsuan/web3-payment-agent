@@ -110,14 +110,17 @@ export function DecisionCard({ decision }: DecisionCardProps) {
       </button>
 
       {txHash && (
-        <p className="mt-3 break-all rounded-lg bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
-          ✓ {txHash}
-        </p>
+        <div className="mt-3 rounded-lg bg-emerald-500/10 px-4 py-2.5">
+          <p className="mb-1 text-xs font-semibold text-emerald-400">✓ Transaction Successful</p>
+          <p className="text-xs text-gray-400 mb-0.5">Transaction Hash</p>
+          <p className="break-all text-sm text-emerald-400">{txHash}</p>
+        </div>
       )}
       {error && (
-        <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
-          ✗ {error}
-        </p>
+        <div className="mt-3 rounded-lg bg-red-500/10 px-4 py-2.5">
+          <p className="mb-1 text-xs font-semibold text-red-400">✗ Transaction Failed</p>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
     </div>
   );

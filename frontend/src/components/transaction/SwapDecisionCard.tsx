@@ -190,21 +190,21 @@ export function SwapDecisionCard({ decision }: SwapDecisionCardProps) {
       </button>
 
       {txHashes.length > 0 && (
-        <div className="mt-3 space-y-1">
+        <div className="mt-3 space-y-2">
           {txHashes.map((hash, i) => (
-            <p
-              key={hash}
-              className="break-all rounded-lg bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400"
-            >
-              ✓ Tx {i + 1}: {hash}
-            </p>
+            <div key={hash} className="rounded-lg bg-emerald-500/10 px-4 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-emerald-400">✓ Transaction Successful</p>
+              <p className="text-xs text-gray-400 mb-0.5">Transaction Hash {txHashes.length > 1 ? `(${i + 1}/${txHashes.length})` : ""}</p>
+              <p className="break-all text-sm text-emerald-400">{hash}</p>
+            </div>
           ))}
         </div>
       )}
       {error && (
-        <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
-          ✗ {error}
-        </p>
+        <div className="mt-3 rounded-lg bg-red-500/10 px-4 py-2.5">
+          <p className="mb-1 text-xs font-semibold text-red-400">✗ Transaction Failed</p>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
     </div>
   );

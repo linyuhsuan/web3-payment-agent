@@ -38,5 +38,6 @@ export const config = createConfig(
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? "",
     appName: "Web3 AI Payment Agent",
     appDescription: "Send USDT cross-chain with AI assistance",
+    enableAaveAccount: false,
   })
 );

@@ -75,6 +75,11 @@ export interface EstimateGasInput {
 
 export async function estimateGas(input: EstimateGasInput): Promise<EstimateGasResult> {
   const { chain, from, to, amountUSDT, targetToken = "USDT", amountETH } = input;
+
+  if (!from || from === "0x0000000000000000000000000000000000000000") {
+    throw new Error(`[estimateGas] Invalid sender address: "${from}". Wallet not connected?`);
+  }
+
   const client = getClient(chain);
 
   let txForEstimate: { from: `0x${string}`; to: `0x${string}`; data: `0x${string}`; value: bigint };

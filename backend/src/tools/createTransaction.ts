@@ -36,6 +36,10 @@ export async function createTransaction(
 ): Promise<CreateTransactionResult> {
   const { chain, from, to, targetToken = "USDT", amountUSDT, amountETH } = input;
 
+  if (!from || from === "0x0000000000000000000000000000000000000000") {
+    throw new Error(`[createTransaction] Invalid sender address: "${from}". Wallet not connected?`);
+  }
+
   const latestBalances = await getBalances(from, [chain]);
   const chainBalance = latestBalances.balances[chain];
 

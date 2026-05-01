@@ -1,12 +1,32 @@
-import { useState } from "react";
-import { useSendTransaction } from "wagmi";
-import type { AgentSwapDecision, UnsignedTx } from "../hooks/useAgentStream";
+import { useRef, useState } from "react";
+import { useSendTransaction, usePublicClient, useChainId, useSwitchChain } from "wagmi";
+import { mainnet, arbitrum, optimism, base, polygon, sepolia } from "wagmi/chains";
+import type { AgentSwapDecision, UnsignedTx } from "../../hooks/useAgentStream";
 
 interface SwapDecisionCardProps {
   decision: AgentSwapDecision;
 }
 
 type TxPhase = "approve" | "swap" | "transfer";
+
+const CHAIN_IDS: Record<string, number> = {
+  ethereum: mainnet.id,
+  mainnet: mainnet.id,
+  arbitrum: arbitrum.id,
+  optimism: optimism.id,
+  base: base.id,
+  polygon: polygon.id,
+  sepolia: sepolia.id,
+};
+
+const CHAIN_NAMES: Record<number, string> = {
+  [mainnet.id]: "Ethereum",
+  [arbitrum.id]: "Arbitrum",
+  [optimism.id]: "Optimism",
+  [base.id]: "Base",
+  [polygon.id]: "Polygon",
+  [sepolia.id]: "Sepolia",
+};
 
 function phaseLabel(direction: "ETH_TO_USDT" | "USDT_TO_ETH", phase: TxPhase): string {
   if (direction === "ETH_TO_USDT") {
@@ -19,6 +39,9 @@ function phaseLabel(direction: "ETH_TO_USDT" | "USDT_TO_ETH", phase: TxPhase): s
 
 export function SwapDecisionCard({ decision }: SwapDecisionCardProps) {
   const { sendTransactionAsync } = useSendTransaction();
+  const publicClient = usePublicClient();
+  const currentChainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const [currentStep, setCurrentStep] = useState(0);
   const [txHashes, setTxHashes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -26,28 +49,38 @@ export function SwapDecisionCard({ decision }: SwapDecisionCardProps) {
 
   const { direction, chain, transferTo, transferAmount, txCount, approveTx, swapTx, transferTx } = decision;
 
-  const txQueue: { phase: TxPhase; tx: UnsignedTx }[] =
-    direction === "ETH_TO_USDT"
-      ? [
-          { phase: "swap", tx: swapTx },
-          { phase: "transfer", tx: transferTx },
-        ]
-      : [
-          { phase: "approve", tx: approveTx! },
-          { phase: "swap", tx: swapTx },
-          { phase: "transfer", tx: transferTx },
-        ];
+  const targetChainId = CHAIN_IDS[chain.toLowerCase()];
+  const isWrongChain = targetChainId === undefined || currentChainId !== targetChainId;
+  const targetChainName = CHAIN_NAMES[targetChainId] ?? chain;
+  const currentChainName = CHAIN_NAMES[currentChainId] ?? `Chain ${currentChainId}`;
+
+  const txQueue: { phase: TxPhase; tx: UnsignedTx }[] = (() => {
+    if (direction === "ETH_TO_USDT") {
+      return [
+        { phase: "swap" as TxPhase, tx: swapTx },
+        { phase: "transfer" as TxPhase, tx: transferTx },
+      ];
+    }
+    if (!approveTx) {
+      return [];
+    }
+    return [
+      { phase: "approve" as TxPhase, tx: approveTx },
+      { phase: "swap" as TxPhase, tx: swapTx },
+      { phase: "transfer" as TxPhase, tx: transferTx },
+    ];
+  })();
 
   const isComplete = txHashes.length === txCount;
-
-  const handleDemo = () => {
-    setError(null);
-    setTxHashes(Array.from({ length: txCount }, (_, i) => `demo-tx-${i + 1}`));
-    setCurrentStep(txCount);
-  };
+  const submittingRef = useRef(false);
 
   const handleProceed = async () => {
-    if (isSubmitting || isComplete) return;
+    if (submittingRef.current || isComplete || txQueue.length === 0) return;
+    if (!approveTx && direction === "USDT_TO_ETH") {
+      setError("Missing approve transaction data. Please try again.");
+      return;
+    }
+    submittingRef.current = true;
     setError(null);
     setIsSubmitting(true);
     try {
@@ -60,11 +93,16 @@ export function SwapDecisionCard({ decision }: SwapDecisionCardProps) {
           value: BigInt(tx.value ?? "0"),
         });
         setTxHashes((prev) => [...prev, hash]);
+        // Wait for on-chain confirmation before submitting the next tx
+        if (i < txQueue.length - 1 && publicClient) {
+          await publicClient.waitForTransactionReceipt({ hash });
+        }
         setCurrentStep(i + 1);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Transaction rejected");
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -122,28 +160,34 @@ export function SwapDecisionCard({ decision }: SwapDecisionCardProps) {
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <button
-          className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          onClick={handleDemo}
-          disabled={isSubmitting || isComplete}
-        >
-          Demo Mode
-        </button>
-        <button
-          className="rounded-lg bg-amber-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_16px_rgba(245,158,11,0.25)]"
-          type="button"
-          disabled={isSubmitting || isComplete}
-          onClick={handleProceed}
-        >
-          {isSubmitting
-            ? `Signing ${currentStep + 1}/${txCount}…`
-            : isComplete
-            ? "Complete"
-            : `Proceed (${txCount} signatures) →`}
-        </button>
-      </div>
+      {isWrongChain && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <p className="text-xs text-amber-300">
+            Wallet is on <span className="font-semibold">{currentChainName}</span>. Switch to{" "}
+            <span className="font-semibold">{targetChainName}</span> to proceed.
+          </p>
+          <button
+            type="button"
+            className="ml-3 shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-gray-950 transition hover:bg-amber-400"
+            onClick={() => switchChain({ chainId: targetChainId })}
+          >
+            Switch to {targetChainName}
+          </button>
+        </div>
+      )}
+
+      <button
+        className="w-full rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_16px_rgba(245,158,11,0.25)]"
+        type="button"
+        disabled={isSubmitting || isComplete || isWrongChain}
+        onClick={handleProceed}
+      >
+        {isSubmitting
+          ? `Signing ${currentStep + 1}/${txCount}…`
+          : isComplete
+          ? "Complete ✓"
+          : `Proceed (${txCount} signatures) →`}
+      </button>
 
       {txHashes.length > 0 && (
         <div className="mt-3 space-y-1">

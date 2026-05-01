@@ -1,8 +1,8 @@
 import { formatEther, formatUnits, parseUnits } from "viem";
 import { USDT_ADDRESSES, USDT_DECIMALS, type SupportedChain } from "../web3/constants";
 import { CHAIN_IDS } from "../web3/providers";
+import { uniswapPost } from "../web3/uniswapApi";
 
-const UNISWAP_API_BASE = "https://trade-api.gateway.uniswap.org/v1";
 const NATIVE_ETH = "0x0000000000000000000000000000000000000000";
 const QUOTE_TTL_MS = 30_000;
 
@@ -87,27 +87,16 @@ export async function getSwapQuote(input: GetSwapQuoteInput): Promise<GetSwapQuo
     swapper: from,
   };
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (process.env.UNISWAP_API_KEY) {
-    headers["x-api-key"] = process.env.UNISWAP_API_KEY;
+  let quoteResponse: Record<string, unknown>;
+  try {
+    quoteResponse = (await uniswapPost("/quote", body)) as Record<string, unknown>;
+  } catch (err) {
+    const e = err as { status?: number; body?: string };
+    const status = e.status ?? 500;
+    const rawBody = e.body ?? (err instanceof Error ? err.message : String(err));
+    console.error(`[getSwapQuote] Uniswap API error ${status}: ${rawBody}`);
+    throw new Error(classifyUniswapError(status, rawBody, chain, direction));
   }
-
-  const res = await fetch(`${UNISWAP_API_BASE}/quote`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    const friendlyError = classifyUniswapError(res.status, text, chain, direction);
-    console.error(`[getSwapQuote] Uniswap API error ${res.status}: ${text}`);
-    throw new Error(friendlyError);
-  }
-
-  const quoteResponse = (await res.json()) as Record<string, unknown>;
   const quote = quoteResponse.quote as Record<string, unknown> | undefined;
 
   if (!quote) {

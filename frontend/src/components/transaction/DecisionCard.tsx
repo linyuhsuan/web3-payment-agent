@@ -1,21 +1,43 @@
 import { useState } from "react";
-import { useSendTransaction } from "wagmi";
-import type { AgentDecision } from "../hooks/useAgentStream";
+import { useSendTransaction, useChainId, useSwitchChain } from "wagmi";
+import { mainnet, arbitrum, optimism, base, polygon, sepolia } from "wagmi/chains";
+import type { AgentDecision } from "../../hooks/useAgentStream";
 
 interface DecisionCardProps {
   decision: AgentDecision;
 }
 
+const CHAIN_IDS: Record<string, number> = {
+  ethereum: mainnet.id,
+  mainnet: mainnet.id,
+  arbitrum: arbitrum.id,
+  optimism: optimism.id,
+  base: base.id,
+  polygon: polygon.id,
+  sepolia: sepolia.id,
+};
+
+const CHAIN_NAMES: Record<number, string> = {
+  [mainnet.id]: "Ethereum",
+  [arbitrum.id]: "Arbitrum",
+  [optimism.id]: "Optimism",
+  [base.id]: "Base",
+  [polygon.id]: "Polygon",
+  [sepolia.id]: "Sepolia",
+};
+
 export function DecisionCard({ decision }: DecisionCardProps) {
   const { sendTransactionAsync } = useSendTransaction();
+  const currentChainId = useChainId();
+  const { switchChain } = useSwitchChain();
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDemo = () => {
-    setError(null);
-    setTxHash("demo-mode-no-broadcast");
-  };
+  const targetChainId = CHAIN_IDS[decision.chain.toLowerCase()];
+  const isWrongChain = targetChainId === undefined || currentChainId !== targetChainId;
+  const targetChainName = CHAIN_NAMES[targetChainId] ?? decision.chain;
+  const currentChainName = CHAIN_NAMES[currentChainId] ?? `Chain ${currentChainId}`;
 
   const handleReal = async () => {
     try {
@@ -61,23 +83,32 @@ export function DecisionCard({ decision }: DecisionCardProps) {
           <span className="text-sm font-medium text-gray-200">{decision.gasFeeNative}</span>
         </div>
       </div>
-      <div className="flex gap-2">
-        <button
-          className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition hover:border-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          onClick={handleDemo}
-        >
-          Demo Mode
-        </button>
-        <button
-          className="rounded-lg bg-violet-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_16px_rgba(139,92,246,0.3)]"
-          type="button"
-          disabled={isSubmitting}
-          onClick={handleReal}
-        >
-          {isSubmitting ? "Submitting…" : "Sign & Send →"}
-        </button>
-      </div>
+
+      {isWrongChain && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <p className="text-xs text-amber-300">
+            Wallet is on <span className="font-semibold">{currentChainName}</span>. Switch to{" "}
+            <span className="font-semibold">{targetChainName}</span> to proceed.
+          </p>
+          <button
+            type="button"
+            className="ml-3 shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-gray-950 transition hover:bg-amber-400"
+            onClick={() => switchChain({ chainId: targetChainId })}
+          >
+            Switch to {targetChainName}
+          </button>
+        </div>
+      )}
+
+      <button
+        className="w-full rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_16px_rgba(139,92,246,0.3)]"
+        type="button"
+        disabled={isSubmitting || isWrongChain || !!txHash}
+        onClick={handleReal}
+      >
+        {isSubmitting ? "Submitting…" : txHash ? "Sent ✓" : "Sign & Send →"}
+      </button>
+
       {txHash && (
         <p className="mt-3 break-all rounded-lg bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
           ✓ {txHash}
@@ -91,4 +122,3 @@ export function DecisionCard({ decision }: DecisionCardProps) {
     </div>
   );
 }
-

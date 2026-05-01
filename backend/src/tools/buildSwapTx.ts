@@ -1,9 +1,8 @@
 import { encodeFunctionData, parseEther, parseUnits } from "viem";
 import { ERC20_ABI, USDT_ADDRESSES, USDT_DECIMALS, type SupportedChain } from "../web3/constants";
 import { CHAIN_IDS } from "../web3/providers";
-import { getCachedQuote, getSwapQuote } from "./getSwapQuote";
-
-const UNISWAP_API_BASE = "https://trade-api.gateway.uniswap.org/v1";
+import { getCachedQuote } from "./getSwapQuote";
+import { uniswapPost } from "../web3/uniswapApi";
 
 export interface UnsignedTx {
   from: `0x${string}`;
@@ -30,43 +29,22 @@ export interface BuildSwapTxResult {
 }
 
 async function callUniswapSwap(quoteResponse: unknown, chain: SupportedChain): Promise<Record<string, unknown>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (process.env.UNISWAP_API_KEY) headers["x-api-key"] = process.env.UNISWAP_API_KEY;
-
-  // Spread quoteResponse, removing null/undefined fields
   const body = Object.fromEntries(
     Object.entries(quoteResponse as Record<string, unknown>).filter(([, v]) => v != null)
   );
-
-  const res = await fetch(`${UNISWAP_API_BASE}/swap`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ ...body, chainId: CHAIN_IDS[chain] }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`[buildSwapTx] Uniswap swap API error ${res.status}: ${text}`);
-  }
-
-  return res.json() as Promise<Record<string, unknown>>;
+  const result = await uniswapPost("/swap", { ...body, chainId: CHAIN_IDS[chain] });
+  return result as Record<string, unknown>;
 }
 
 export async function buildSwapTx(input: BuildSwapTxInput): Promise<BuildSwapTxResult> {
   const { quoteId, chain, from, transferTo, transferAmount, direction } = input;
 
-  // Retrieve cached quote; re-fetch if expired
-  let cached = getCachedQuote(quoteId);
+  // Retrieve cached quote; reject if expired so user sees current prices
+  const cached = getCachedQuote(quoteId);
   if (!cached) {
-    console.log(`[buildSwapTx] Quote ${quoteId} expired, re-fetching...`);
-    const freshResult = await getSwapQuote({
-      direction,
-      chain,
-      from,
-      to: transferTo,
-      amountOut: transferAmount,
-    });
-    cached = getCachedQuote(freshResult.quoteId)!;
+    throw new Error(
+      "Swap quote has expired (quotes are valid for 30 seconds). Please send your request again to get a fresh quote."
+    );
   }
 
   const swapResponse = await callUniswapSwap(cached.quoteResponse, chain);

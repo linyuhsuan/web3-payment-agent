@@ -74,7 +74,7 @@ function toolDetail(tool: string, result: unknown): string {
 
 export function useAgentStream() {
   const [steps, setSteps] = useState<AgentStep[]>([]);
-  const [claudeText, setClaudeText] = useState("");
+  const [geminiText, setGeminiText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [decision, setDecision] = useState<AgentDecision | null>(null);
   const [swapDecision, setSwapDecision] = useState<AgentSwapDecision | null>(null);
@@ -86,7 +86,7 @@ export function useAgentStream() {
 
   const reset = useCallback(() => {
     setSteps([]);
-    setClaudeText("");
+    setGeminiText("");
     setDecision(null);
     setSwapDecision(null);
     setIsStreaming(false);
@@ -105,7 +105,7 @@ export function useAgentStream() {
 
     setIsStreaming(true);
     setSteps([]);
-    setClaudeText("");
+    setGeminiText("");
     setDecision(null);
     setSwapDecision(null);
     setStreamError(null);
@@ -172,19 +172,22 @@ export function useAgentStream() {
               );
             });
           } else if (eventName === "text" && typeof data.content === "string") {
-            setClaudeText((prev) => prev + data.content);
+            setGeminiText((prev) => prev + data.content);
           } else if (eventName === "decision") {
             setDecision(data as unknown as AgentDecision);
           } else if (eventName === "swap_decision") {
             setSwapDecision(data as unknown as AgentSwapDecision);
           } else if (eventName === "error") {
             const msg = typeof data.message === "string" ? data.message : "Unknown error";
+            const errTool = typeof data.tool === "string" ? data.tool : null;
             if (runningCount === 0) {
               setStreamError(msg);
             } else {
               runningCount = Math.max(0, runningCount - 1);
               setSteps((prev) => {
-                const lastRunning = [...prev].reverse().find((s) => s.status === "running");
+                const lastRunning = [...prev]
+                  .reverse()
+                  .find((s) => s.status === "running" && (!errTool || s.tool === errTool));
                 if (!lastRunning) return prev;
                 return prev.map((s) =>
                   s.id === lastRunning.id ? { ...s, status: "error", detail: msg } : s
@@ -215,7 +218,7 @@ export function useAgentStream() {
 
   return {
     steps,
-    claudeText,
+    geminiText,
     decision,
     swapDecision,
     hasSteps,

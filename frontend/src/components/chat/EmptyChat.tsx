@@ -24,7 +24,7 @@ export function EmptyChat({ isLoading, inputValue, onInputChange, onSubmit }: Em
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-white">Payment Agent</h1>
+        <h1 className="text-3xl font-bold text-white">Pay Agent</h1>
         <p className="mt-2 text-sm text-gray-500">
           Describe any payment intent in plain language — the agent handles the rest.
         </p>

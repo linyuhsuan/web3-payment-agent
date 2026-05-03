@@ -55,9 +55,9 @@ const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         targetToken: { type: Type.STRING, description: "Token to transfer: 'USDT' or 'ETH'" },
         amountUSDT: { type: Type.NUMBER, description: "Amount of USDT to transfer (if targetToken is USDT)" },
         amountETH: { type: Type.NUMBER, description: "Amount of ETH to transfer (if targetToken is ETH)" },
-        balances: { type: Type.OBJECT, description: "The full result object returned by getBalances" },
+        balances: { type: Type.OBJECT, description: "Optional: the result object returned by getBalances" },
       },
-      required: ["from", "to", "balances"],
+      required: ["from", "to"],
     },
   },
   {

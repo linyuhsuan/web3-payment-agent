@@ -1,12 +1,12 @@
 import type { SupportedChain } from "../web3/constants";
 import { estimateGas, type EstimateGasResult } from "./estimateGas";
-import { type GetBalancesResult } from "./getBalances";
+import { getBalances, type GetBalancesResult } from "./getBalances";
 
 export interface SelectChainInput {
   from: `0x${string}`;
   to: `0x${string}`;
   amountUSDT?: number;
-  balances: GetBalancesResult;
+  balances?: GetBalancesResult;
   targetToken?: "USDT" | "ETH";
   amountETH?: number;
 }
@@ -19,17 +19,23 @@ export interface SelectChainResult {
 export async function selectChain(input: SelectChainInput): Promise<SelectChainResult> {
   const { targetToken = "USDT", amountETH, amountUSDT } = input;
 
-  // Gemini may pass the full GetBalancesResult or just the inner balances map
-  const balancesMap: GetBalancesResult["balances"] =
-    input.balances?.balances ?? (input.balances as unknown as GetBalancesResult["balances"]);
+  // Always fetch fresh balances to avoid Gemini passing incomplete/wrong data
+  const freshBalances = await getBalances(input.from);
+  const balancesMap = freshBalances.balances;
 
-  const eligibleChains = Object.entries(balancesMap ?? {})
+  console.log(`[selectChain] targetToken=${targetToken} amountETH=${amountETH} amountUSDT=${amountUSDT}`);
+  Object.entries(balancesMap).forEach(([chain, b]) => {
+    console.log(`[selectChain] ${chain}: eth=${b.eth} usdt=${b.usdt} hasError=${b.hasError}`);
+  });
+
+  const eligibleChains = Object.entries(balancesMap)
     .filter((entry): entry is [SupportedChain, GetBalancesResult["balances"][SupportedChain]] => {
       const [_, balance] = entry as [SupportedChain, GetBalancesResult["balances"][SupportedChain]];
       if (balance.hasError) return false;
       if (targetToken === "ETH") {
-        // Need enough ETH to cover transfer amount + ~5% buffer for gas
-        return Number(balance.eth) >= (amountETH ?? 0) * 1.05;
+        // Need ETH for transfer + minimum gas buffer (0.0003 ETH covers L2s and mainnet)
+        const gasBuffer = Math.max(0.0003, (amountETH ?? 0) * 0.05);
+        return Number(balance.eth) >= (amountETH ?? 0) + gasBuffer;
       }
       return Number(balance.usdt) >= (amountUSDT ?? 0) && Number(balance.eth) > 0;
     })

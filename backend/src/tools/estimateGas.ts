@@ -82,6 +82,8 @@ export async function estimateGas(input: EstimateGasInput): Promise<EstimateGasR
 
   const client = getClient(chain);
 
+  // txForEstimate uses `from` for raw RPC calls (e.g. eth_estimateL1Fee),
+  // but viem's estimateGas uses `account` (not `from`) in v2.
   let txForEstimate: { from: `0x${string}`; to: `0x${string}`; data: `0x${string}`; value: bigint };
 
   if (targetToken === "ETH") {
@@ -106,7 +108,12 @@ export async function estimateGas(input: EstimateGasInput): Promise<EstimateGasR
     };
   }
 
-  const gasLimit = await client.estimateGas(txForEstimate);
+  const gasLimit = await client.estimateGas({
+    account: from,
+    to: txForEstimate.to,
+    data: txForEstimate.data,
+    value: txForEstimate.value,
+  });
   const fees = await client.estimateFeesPerGas();
   const maxFeePerGas = fees.maxFeePerGas ?? fees.gasPrice;
 

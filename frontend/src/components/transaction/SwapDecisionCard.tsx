@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useSendTransaction, usePublicClient, useChainId, useSwitchChain } from "wagmi";
-import { mainnet, arbitrum, optimism, base, polygon, sepolia } from "wagmi/chains";
+import { mainnet, arbitrum, optimism, base, polygon } from "wagmi/chains";
 import type { AgentSwapDecision, UnsignedTx } from "../../hooks/useAgentStream";
 
 interface SwapDecisionCardProps {
@@ -16,7 +16,6 @@ const CHAIN_IDS: Record<string, number> = {
   optimism: optimism.id,
   base: base.id,
   polygon: polygon.id,
-  sepolia: sepolia.id,
 };
 
 const CHAIN_NAMES: Record<number, string> = {
@@ -25,7 +24,6 @@ const CHAIN_NAMES: Record<number, string> = {
   [optimism.id]: "Optimism",
   [base.id]: "Base",
   [polygon.id]: "Polygon",
-  [sepolia.id]: "Sepolia",
 };
 
 function phaseLabel(direction: "ETH_TO_USDT" | "USDT_TO_ETH", phase: TxPhase): string {

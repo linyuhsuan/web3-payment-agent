@@ -1,5 +1,5 @@
 import { createPublicClient, http, fallback } from "viem";
-import { mainnet, arbitrum, optimism, base, polygon, sepolia } from "viem/chains";
+import { mainnet, arbitrum, optimism, base, polygon } from "viem/chains";
 import type { SupportedChain } from "./constants";
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
@@ -14,7 +14,6 @@ const PUBLIC_RPC: Record<SupportedChain, string> = {
   optimism: "https://mainnet.optimism.io",
   base: "https://mainnet.base.org",
   polygon: "https://polygon-bor-rpc.publicnode.com",
-  sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
 };
 
 function chainTransport(chain: SupportedChain, alchemyNetwork: string) {
@@ -33,7 +32,6 @@ function buildClients() {
     optimism: createPublicClient({ chain: optimism, transport: chainTransport("optimism", "opt-mainnet") }),
     base:     createPublicClient({ chain: base,     transport: chainTransport("base",     "base-mainnet") }),
     polygon:  createPublicClient({ chain: polygon,  transport: chainTransport("polygon",  "polygon-mainnet") }),
-    sepolia:  createPublicClient({ chain: sepolia,  transport: chainTransport("sepolia",  "eth-sepolia") }),
   };
 }
 
@@ -52,5 +50,4 @@ export const CHAIN_IDS: Record<SupportedChain, number> = {
   optimism: optimism.id,
   base:     base.id,
   polygon:  polygon.id,
-  sepolia:  sepolia.id,
 };

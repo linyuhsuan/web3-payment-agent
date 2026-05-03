@@ -47,7 +47,7 @@ const steps = [
 ];
 
 const techStack = [
-  { name: "Gemini AI", sub: "Reasoning Engine" },
+  { name: "AI Model", sub: "Reasoning Engine" },
   { name: "Alchemy", sub: "Multi-chain RPC" },
   { name: "Uniswap", sub: "Auto Liquidity" },
   { name: "ENS", sub: "Identity Layer" },
@@ -70,10 +70,10 @@ export default function LandingPage() {
           <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight md:text-7xl">
             Pay Anyone.{" "}
             <span className="bg-linear-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              Any Chain.
+              Just Chat.
             </span>
             <br />
-            Just Say It.
+            AI Handles the Rest.
           </h1>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-400 leading-relaxed">

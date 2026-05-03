@@ -4,7 +4,6 @@ const EXAMPLES = [
   "Send 50 USDT to alice.eth",
   "Send 0.01 ETH to vitalik.eth",
   "Pay alice.eth 100 USDT",
-  "Transfer 0.005 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 ];
 
 const STEPS_GUIDE = [

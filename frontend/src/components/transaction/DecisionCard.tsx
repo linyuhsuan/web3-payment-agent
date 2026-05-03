@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSendTransaction, useChainId, useSwitchChain } from "wagmi";
-import { mainnet, arbitrum, optimism, base, polygon, sepolia } from "wagmi/chains";
+import { mainnet, arbitrum, optimism, base, polygon } from "wagmi/chains";
 import type { AgentDecision } from "../../hooks/useAgentStream";
 
 interface DecisionCardProps {
@@ -14,7 +14,6 @@ const CHAIN_IDS: Record<string, number> = {
   optimism: optimism.id,
   base: base.id,
   polygon: polygon.id,
-  sepolia: sepolia.id,
 };
 
 const CHAIN_NAMES: Record<number, string> = {
@@ -23,7 +22,6 @@ const CHAIN_NAMES: Record<number, string> = {
   [optimism.id]: "Optimism",
   [base.id]: "Base",
   [polygon.id]: "Polygon",
-  [sepolia.id]: "Sepolia",
 };
 
 export function DecisionCard({ decision }: DecisionCardProps) {

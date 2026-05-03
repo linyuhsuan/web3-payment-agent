@@ -11,16 +11,32 @@ export interface AgentStep {
   status: AgentStepStatus;
 }
 
+export interface UnsignedTx {
+  from: `0x${string}`;
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value: string;
+}
+
 export interface AgentDecision {
   recipient: `0x${string}`;
   chain: string;
-  amountUSDT: number;
+  targetToken?: "USDT" | "ETH";
+  amountUSDT?: number;
+  amountETH?: number;
   gasFeeNative: string;
-  transaction: {
-    to: `0x${string}`;
-    data: `0x${string}`;
-    value: "0";
-  };
+  transaction: UnsignedTx;
+}
+
+export interface AgentSwapDecision {
+  direction: "ETH_TO_USDT" | "USDT_TO_ETH";
+  chain: string;
+  transferTo: string;
+  transferAmount: number;
+  txCount: number;
+  approveTx?: UnsignedTx;
+  swapTx: UnsignedTx;
+  transferTx: UnsignedTx;
 }
 
 const TOOL_TITLES: Record<string, string> = {
@@ -40,13 +56,17 @@ function toolDetail(tool: string, result: unknown): string {
     case "resolveIdentity":
       return `→ ${r.address}`;
     case "getBalances":
-      return `Total USDT: ${r.totalUSDT}`;
+      return `ETH: ${r.totalETH} | USDT: ${r.totalUSDT}`;
     case "selectChain":
       return `Selected ${(r as Record<string, unknown>).selectedChain}`;
     case "estimateGas":
       return `Gas: ${(r as Record<string, unknown>).totalFeeNative} ETH`;
     case "createTransaction":
       return "Transaction ready";
+    case "getSwapQuote":
+      return `${(r as Record<string, unknown>).amountIn} → ${(r as Record<string, unknown>).amountOut}`;
+    case "buildSwapTx":
+      return `${(r as Record<string, unknown>).txCount} txs ready`;
     default:
       return "Done";
   }
@@ -54,9 +74,10 @@ function toolDetail(tool: string, result: unknown): string {
 
 export function useAgentStream() {
   const [steps, setSteps] = useState<AgentStep[]>([]);
-  const [claudeText, setClaudeText] = useState("");
+  const [geminiText, setGeminiText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [decision, setDecision] = useState<AgentDecision | null>(null);
+  const [swapDecision, setSwapDecision] = useState<AgentSwapDecision | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const stepCounterRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -65,8 +86,9 @@ export function useAgentStream() {
 
   const reset = useCallback(() => {
     setSteps([]);
-    setClaudeText("");
+    setGeminiText("");
     setDecision(null);
+    setSwapDecision(null);
     setIsStreaming(false);
     setStreamError(null);
   }, []);
@@ -83,8 +105,9 @@ export function useAgentStream() {
 
     setIsStreaming(true);
     setSteps([]);
-    setClaudeText("");
+    setGeminiText("");
     setDecision(null);
+    setSwapDecision(null);
     setStreamError(null);
 
     // Track running steps locally to avoid reading React state in updaters
@@ -149,17 +172,22 @@ export function useAgentStream() {
               );
             });
           } else if (eventName === "text" && typeof data.content === "string") {
-            setClaudeText((prev) => prev + data.content);
+            setGeminiText((prev) => prev + data.content);
           } else if (eventName === "decision") {
             setDecision(data as unknown as AgentDecision);
+          } else if (eventName === "swap_decision") {
+            setSwapDecision(data as unknown as AgentSwapDecision);
           } else if (eventName === "error") {
             const msg = typeof data.message === "string" ? data.message : "Unknown error";
+            const errTool = typeof data.tool === "string" ? data.tool : null;
             if (runningCount === 0) {
               setStreamError(msg);
             } else {
               runningCount = Math.max(0, runningCount - 1);
               setSteps((prev) => {
-                const lastRunning = [...prev].reverse().find((s) => s.status === "running");
+                const lastRunning = [...prev]
+                  .reverse()
+                  .find((s) => s.status === "running" && (!errTool || s.tool === errTool));
                 if (!lastRunning) return prev;
                 return prev.map((s) =>
                   s.id === lastRunning.id ? { ...s, status: "error", detail: msg } : s
@@ -190,8 +218,9 @@ export function useAgentStream() {
 
   return {
     steps,
-    claudeText,
+    geminiText,
     decision,
+    swapDecision,
     hasSteps,
     isStreaming,
     streamError,

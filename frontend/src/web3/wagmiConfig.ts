@@ -14,7 +14,7 @@ const PUBLIC_RPC: Record<number, string> = {
   [arbitrum.id]: "https://arb1.arbitrum.io/rpc",
   [optimism.id]: "https://mainnet.optimism.io",
   [base.id]:     "https://mainnet.base.org",
-  [polygon.id]:  "https://polygon-rpc.com",
+  [polygon.id]:  "https://polygon-bor-rpc.publicnode.com",
 };
 
 function transport(chainId: number, network: string) {
@@ -27,14 +27,15 @@ export const config = createConfig(
   getDefaultConfig({
     chains: [mainnet, arbitrum, optimism, base, polygon],
     transports: {
-      [mainnet.id]:   transport(mainnet.id,  "eth-mainnet"),
-      [arbitrum.id]:  transport(arbitrum.id, "arb-mainnet"),
-      [optimism.id]:  transport(optimism.id, "opt-mainnet"),
-      [base.id]:      transport(base.id,     "base-mainnet"),
-      [polygon.id]:   transport(polygon.id,  "polygon-mainnet"),
+      [mainnet.id]:   transport(mainnet.id,   "eth-mainnet"),
+      [arbitrum.id]:  transport(arbitrum.id,  "arb-mainnet"),
+      [optimism.id]:  transport(optimism.id,  "opt-mainnet"),
+      [base.id]:      transport(base.id,      "base-mainnet"),
+      [polygon.id]:   transport(polygon.id,   "polygon-mainnet"),
     },
     walletConnectProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? "",
     appName: "Web3 AI Payment Agent",
     appDescription: "Send USDT cross-chain with AI assistance",
+    enableAaveAccount: false,
   })
 );

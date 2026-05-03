@@ -1,4 +1,4 @@
-import { encodeFunctionData, formatEther, parseUnits } from "viem";
+import { encodeFunctionData, formatEther, parseEther, parseUnits } from "viem";
 import {
   ERC20_ABI,
   USDT_ADDRESSES,
@@ -68,25 +68,43 @@ export interface EstimateGasInput {
   chain: SupportedChain;
   from: `0x${string}`;
   to: `0x${string}`;
-  amountUSDT: number;
+  amountUSDT?: number;
+  targetToken?: "USDT" | "ETH";
+  amountETH?: number;
 }
 
 export async function estimateGas(input: EstimateGasInput): Promise<EstimateGasResult> {
-  const { chain, from, to, amountUSDT } = input;
-  const client = getClient(chain);
-  const tokenAddress = USDT_ADDRESSES[chain] as `0x${string}`;
-  const data = encodeFunctionData({
-    abi: ERC20_ABI,
-    functionName: "transfer",
-    args: [to, parseUnits(amountUSDT.toString(), USDT_DECIMALS)],
-  });
+  const { chain, from, to, amountUSDT, targetToken = "USDT", amountETH } = input;
 
-  const txForEstimate = {
-    from,
-    to: tokenAddress,
-    data,
-    value: 0n,
-  };
+  if (!from || from === "0x0000000000000000000000000000000000000000") {
+    throw new Error(`[estimateGas] Invalid sender address: "${from}". Wallet not connected?`);
+  }
+
+  const client = getClient(chain);
+
+  let txForEstimate: { from: `0x${string}`; to: `0x${string}`; data: `0x${string}`; value: bigint };
+
+  if (targetToken === "ETH") {
+    txForEstimate = {
+      from,
+      to,
+      data: "0x",
+      value: parseEther((amountETH ?? 0).toString()),
+    };
+  } else {
+    const tokenAddress = USDT_ADDRESSES[chain] as `0x${string}`;
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [to, parseUnits((amountUSDT ?? 0).toString(), USDT_DECIMALS)],
+    });
+    txForEstimate = {
+      from,
+      to: tokenAddress,
+      data,
+      value: 0n,
+    };
+  }
 
   const gasLimit = await client.estimateGas(txForEstimate);
   const fees = await client.estimateFeesPerGas();

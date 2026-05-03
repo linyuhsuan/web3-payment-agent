@@ -11,6 +11,7 @@ export interface ChainBalance {
 export interface GetBalancesResult {
   balances: Record<SupportedChain, ChainBalance>;
   totalUSDT: string;
+  totalETH: string;
   availableChains: SupportedChain[];
 }
 
@@ -47,6 +48,7 @@ export async function getBalances(
 
   const balances = {} as Record<SupportedChain, ChainBalance>;
   let totalUSDT = 0;
+  let totalETH = 0;
   const availableChains: SupportedChain[] = [];
 
   results.forEach((result, i) => {
@@ -54,6 +56,8 @@ export async function getBalances(
     if (result.status === "fulfilled") {
       balances[chain] = result.value;
       const usdtAmount = parseFloat(result.value.usdt);
+      const ethAmount = parseFloat(result.value.eth);
+      totalETH += ethAmount;
       if (usdtAmount > 0) {
         totalUSDT += usdtAmount;
         availableChains.push(chain);
@@ -67,6 +71,7 @@ export async function getBalances(
   return {
     balances,
     totalUSDT: totalUSDT.toFixed(6),
+    totalETH: totalETH.toFixed(6),
     availableChains,
   };
 }

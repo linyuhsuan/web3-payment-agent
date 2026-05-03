@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Navbar } from "../components/Navbar";
+import { Navbar } from "../components/layout/Navbar";
 
 const GRID_BG = {
   backgroundImage:
@@ -47,12 +47,12 @@ const steps = [
 ];
 
 const techStack = [
-  { name: "Gemini AI", sub: "Reasoning Engine" },
+  { name: "AI Model", sub: "Reasoning Engine" },
   { name: "Alchemy", sub: "Multi-chain RPC" },
   { name: "Uniswap", sub: "Auto Liquidity" },
   { name: "ENS", sub: "Identity Layer" },
   { name: "wagmi", sub: "Wallet Signing" },
-  { name: "Arbitrum", sub: "+ 4 more chains" },
+  { name: "Ethereum", sub: "+ 4 more chains" },
 ];
 
 export default function LandingPage() {
@@ -67,18 +67,13 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute left-1/4 top-32 h-64 w-64 rounded-full bg-indigo-600/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-4xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-xs font-medium text-violet-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
-            ETHGlobal OpenAgents Hackathon
-          </div>
-
           <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight md:text-7xl">
             Pay Anyone.{" "}
-            <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              Any Chain.
+            <span className="bg-linear-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+              Just Chat.
             </span>
             <br />
-            Just Say It.
+            AI Handles the Rest.
           </h1>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-400 leading-relaxed">
@@ -91,10 +86,10 @@ export default function LandingPage() {
               to="/app"
               className="rounded-xl bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-[0_0_24px_rgba(139,92,246,0.4)] transition hover:bg-violet-500 hover:shadow-[0_0_32px_rgba(139,92,246,0.6)]"
             >
-              Launch App →
+              Launch Agent →
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/linyuhsuan/web3-payment-agent"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-xl border border-gray-700 px-8 py-3.5 text-base font-semibold text-gray-300 transition hover:border-gray-500 hover:text-white"
@@ -214,7 +209,7 @@ export default function LandingPage() {
             to="/app"
             className="inline-block rounded-xl bg-violet-600 px-10 py-4 text-base font-semibold text-white shadow-[0_0_24px_rgba(139,92,246,0.4)] transition hover:bg-violet-500"
           >
-            Launch App →
+            Launch Agent →
           </Link>
         </div>
       </section>
@@ -222,15 +217,17 @@ export default function LandingPage() {
       {/* FOOTER */}
       <footer className="border-t border-gray-800 px-6 py-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
-          <span className="font-mono font-semibold text-violet-400">PayAgent</span>
-          <span>Built for ETHGlobal OpenAgents Hackathon 2026</span>
+          <span className="bg-linear-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent font-bold text-base tracking-tight">
+            PayAgent
+          </span>
+          <span>&copy; {new Date().getFullYear()} PayAgent. All rights reserved.</span>
           <a
-            href="https://github.com"
+            href="https://github.com/linyuhsuan/web3-payment-agent"
             target="_blank"
             rel="noopener noreferrer"
             className="transition hover:text-white"
           >
-            GitHub →
+            GitHub
           </a>
         </div>
       </footer>

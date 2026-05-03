@@ -1,8 +1,8 @@
-import type { AgentStep } from "../hooks/useAgentStream";
+import type { AgentStep } from "../../hooks/useAgentStream";
 
 interface AgentStepsProps {
   steps: AgentStep[];
-  claudeText?: string;
+  geminiText?: string;
 }
 
 const dotClass: Record<AgentStep["status"], string> = {
@@ -11,8 +11,8 @@ const dotClass: Record<AgentStep["status"], string> = {
   error: "bg-red-500",
 };
 
-export function AgentSteps({ steps, claudeText }: AgentStepsProps) {
-  if (steps.length === 0 && !claudeText) return null;
+export function AgentSteps({ steps, geminiText }: AgentStepsProps) {
+  if (steps.length === 0 && !geminiText) return null;
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
@@ -24,20 +24,20 @@ export function AgentSteps({ steps, claudeText }: AgentStepsProps) {
           {steps.map((step) => (
             <li key={step.id} className="flex items-start gap-3">
               <span
-                className={`mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full ${dotClass[step.status]}`}
+                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${dotClass[step.status]}`}
                 aria-hidden
               />
               <div>
                 <p className="m-0 text-sm font-semibold text-gray-200">{step.title}</p>
-                <p className="m-0 mt-0.5 text-sm text-gray-500">{step.detail}</p>
+                <p className="m-0 mt-0.5 text-sm text-gray-500 break-all">{step.detail}</p>
               </div>
             </li>
           ))}
         </ul>
       )}
-      {claudeText && (
+      {geminiText && (
         <p className="mt-3 border-t border-gray-800 pt-3 text-sm text-gray-400 whitespace-pre-wrap">
-          {claudeText}
+          {geminiText}
         </p>
       )}
     </div>
